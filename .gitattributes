@@ -1,0 +1,36 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code
+*.dart text
+*.js text
+*.json text
+*.md text
+*.yaml text
+*.yml text
+*.xml text
+*.gradle text
+
+# Scripts
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Documentation
+*.txt text
+*.html text
+*.css text
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+
+# Exclude from exports
+.gitattributes export-ignore
+.gitignore export-ignore

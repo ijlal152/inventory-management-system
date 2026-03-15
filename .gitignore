@@ -1,0 +1,43 @@
+# Root .gitignore for Inventory Management System
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database
+*.sql.backup
+*.dump
+
+# Backup files
+*.bak
+.env.bak
+
+# Compiled files
+*.class
+*.pyc
+
+# Documentation build artifacts (keep source .md files)
+# We want to keep documentation in the repo
