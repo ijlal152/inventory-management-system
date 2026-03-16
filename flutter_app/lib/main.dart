@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
 
 import 'data/datasources/local/product_local_datasource.dart';
+import 'data/datasources/remote/barcode_lookup_datasource.dart';
 import 'data/datasources/remote/product_remote_datasource.dart';
 import 'data/models/product_model.dart';
 import 'data/repositories/product_repository_impl.dart';
@@ -11,6 +12,8 @@ import 'domain/repositories/product_repository.dart';
 import 'domain/usecases/create_product_usecase.dart';
 import 'domain/usecases/delete_product_usecase.dart';
 import 'domain/usecases/get_all_products_usecase.dart';
+import 'domain/usecases/get_product_by_barcode_usecase.dart';
+import 'domain/usecases/lookup_barcode_usecase.dart';
 import 'domain/usecases/sync_products_usecase.dart';
 import 'domain/usecases/update_product_usecase.dart';
 import 'presentation/controllers/barcode_scanner_controller.dart';
@@ -50,6 +53,12 @@ Future<void> setupDependencies(ProductLocalDataSource localDataSource) async {
     client: http.Client(),
   );
 
+  // Barcode Lookup Data Source (using Open Food Facts API)
+  // You can switch to UPCItemDBDataSourceImpl or CustomBackendDataSourceImpl
+  final barcodeLookupDataSource = OpenFoodFactsDataSourceImpl(
+    client: http.Client(),
+  );
+
   // Repository
   final productRepository = ProductRepositoryImpl(
     localDataSource: localDataSource,
@@ -59,6 +68,8 @@ Future<void> setupDependencies(ProductLocalDataSource localDataSource) async {
 
   // Use Cases
   Get.put(GetAllProductsUseCase(productRepository));
+  Get.put(GetProductByBarcodeUseCase(productRepository));
+  Get.put(LookupBarcodeUseCase(barcodeLookupDataSource));
   Get.put(CreateProductUseCase(productRepository));
   Get.put(UpdateProductUseCase(productRepository));
   Get.put(DeleteProductUseCase(productRepository));
@@ -98,6 +109,9 @@ class MyApp extends StatelessWidget {
           binding: BindingsBuilder(() {
             Get.lazyPut(() => ProductController(
                   getAllProductsUseCase: Get.find<GetAllProductsUseCase>(),
+                  getProductByBarcodeUseCase:
+                      Get.find<GetProductByBarcodeUseCase>(),
+                  lookupBarcodeUseCase: Get.find<LookupBarcodeUseCase>(),
                   createProductUseCase: Get.find<CreateProductUseCase>(),
                   updateProductUseCase: Get.find<UpdateProductUseCase>(),
                   deleteProductUseCase: Get.find<DeleteProductUseCase>(),

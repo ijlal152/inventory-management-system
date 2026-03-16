@@ -27,6 +27,12 @@ class ProductRepositoryImpl implements ProductRepository {
   }
 
   @override
+  Future<Product?> getProductByBarcode(String barcode) async {
+    final model = await localDataSource.getProductByBarcode(barcode);
+    return model?.toEntity();
+  }
+
+  @override
   Future<void> createProduct(Product product) async {
     final model = ProductModel.fromEntity(product);
     await localDataSource.saveProduct(model);

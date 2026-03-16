@@ -8,12 +8,16 @@ import '../../domain/entities/product.dart';
 import '../../domain/usecases/create_product_usecase.dart';
 import '../../domain/usecases/delete_product_usecase.dart';
 import '../../domain/usecases/get_all_products_usecase.dart';
+import '../../domain/usecases/get_product_by_barcode_usecase.dart';
+import '../../domain/usecases/lookup_barcode_usecase.dart';
 import '../../domain/usecases/sync_products_usecase.dart';
 import '../../domain/usecases/update_product_usecase.dart';
 import '../../services/sync_service.dart';
 
 class ProductController extends GetxController with WidgetsBindingObserver {
   final GetAllProductsUseCase getAllProductsUseCase;
+  final GetProductByBarcodeUseCase getProductByBarcodeUseCase;
+  final LookupBarcodeUseCase lookupBarcodeUseCase;
   final CreateProductUseCase createProductUseCase;
   final UpdateProductUseCase updateProductUseCase;
   final DeleteProductUseCase deleteProductUseCase;
@@ -22,6 +26,8 @@ class ProductController extends GetxController with WidgetsBindingObserver {
 
   ProductController({
     required this.getAllProductsUseCase,
+    required this.getProductByBarcodeUseCase,
+    required this.lookupBarcodeUseCase,
     required this.createProductUseCase,
     required this.updateProductUseCase,
     required this.deleteProductUseCase,
@@ -286,11 +292,104 @@ class ProductController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  void openBarcodeScanner() {
-    Get.toNamed('/barcode-scanner')?.then((barcode) {
-      if (barcode != null && barcode is String) {
-        barcodeController.text = barcode;
+  void openBarcodeScanner() async {
+    final barcode = await Get.toNamed('/barcode-scanner');
+
+    if (barcode != null && barcode is String) {
+      barcodeController.text = barcode;
+
+      // Show loading indicator
+      Get.dialog(
+        const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Looking up product...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+        barrierDismissible: false,
+      );
+
+      try {
+        // First, try to fetch from external barcode API
+        final lookupResult = await lookupBarcodeUseCase.execute(barcode);
+
+        Get.back(); // Close loading dialog
+
+        if (lookupResult != null && lookupResult.productName != null) {
+          // Product found in external database - auto-fill the form
+          nameController.text = lookupResult.productName!;
+          if (lookupResult.price != null) {
+            priceController.text = lookupResult.price.toString();
+          }
+          quantityController.text = '1'; // Default quantity to 1
+
+          // Combine brand and description if available
+          String description = '';
+          if (lookupResult.brand != null) {
+            description += 'Brand: ${lookupResult.brand}\n';
+          }
+          if (lookupResult.description != null) {
+            description += lookupResult.description!;
+          }
+          descriptionController.text = description.trim();
+
+          Get.snackbar(
+            'Product Found! ✓',
+            '${lookupResult.productName} - Auto-filled from product database',
+            duration: const Duration(seconds: 3),
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: Colors.green[100],
+            colorText: Colors.green[900],
+          );
+        } else {
+          // Not found in external API, try local database
+          final localProduct =
+              await getProductByBarcodeUseCase.execute(barcode);
+
+          if (localProduct != null) {
+            // Found in local database
+            nameController.text = localProduct.name;
+            priceController.text = localProduct.price.toString();
+            quantityController.text = '1';
+            descriptionController.text = localProduct.description ?? '';
+
+            Get.snackbar(
+              'Product Found (Local)',
+              '${localProduct.name} - From your inventory',
+              duration: const Duration(seconds: 2),
+              snackPosition: SnackPosition.TOP,
+              backgroundColor: Colors.blue[100],
+            );
+          } else {
+            // Product not found anywhere - manual entry required
+            Get.snackbar(
+              'New Product',
+              'Barcode: $barcode\nProduct not found. Please enter details manually.',
+              duration: const Duration(seconds: 3),
+              snackPosition: SnackPosition.TOP,
+              backgroundColor: Colors.orange[100],
+            );
+          }
+        }
+      } catch (e) {
+        Get.back(); // Close loading dialog
+        Get.snackbar(
+          'Lookup Failed',
+          'Could not fetch product details. Please enter manually.\nError: $e',
+          duration: const Duration(seconds: 3),
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.red[100],
+        );
       }
-    });
+    }
   }
 }

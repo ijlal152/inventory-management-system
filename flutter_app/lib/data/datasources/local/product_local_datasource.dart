@@ -6,6 +6,7 @@ abstract class ProductLocalDataSource {
   Future<List<ProductModel>> getAllProducts();
   Future<List<ProductModel>> getUnsyncedProducts();
   Future<ProductModel?> getProductByLocalId(String localId);
+  Future<ProductModel?> getProductByBarcode(String barcode);
   Future<void> saveProduct(ProductModel product);
   Future<void> updateProduct(ProductModel product);
   Future<void> deleteProduct(String localId);
@@ -36,6 +37,17 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
     try {
       return _box.values.firstWhere(
         (p) => p.localId == localId,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Future<ProductModel?> getProductByBarcode(String barcode) async {
+    try {
+      return _box.values.firstWhere(
+        (p) => p.barcode == barcode && !p.isDeleted,
       );
     } catch (e) {
       return null;
