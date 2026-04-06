@@ -44,9 +44,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Sensitive configuration files
-lib/core/constants/api_constants.dart
-
 # Environment files
 .env
 .env.local

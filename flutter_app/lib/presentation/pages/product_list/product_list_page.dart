@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../../services/connectivity_service.dart';
 import '../../../services/sync_service.dart';
+import '../../controllers/auth_controller.dart';
 import '../../controllers/product_controller.dart';
 
 class ProductListPage extends GetView<ProductController> {
@@ -10,14 +11,17 @@ class ProductListPage extends GetView<ProductController> {
 
   @override
   Widget build(BuildContext context) {
+    final authController = Get.find<AuthController>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Products'),
         actions: [
           // Unsynced count badge
           Obx(() {
-            final unsyncedCount =
-                controller.products.where((p) => !p.isSynced).length;
+            final unsyncedCount = controller.products
+                .where((p) => !p.isSynced)
+                .length;
             if (unsyncedCount > 0) {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -66,6 +70,55 @@ class ProductListPage extends GetView<ProductController> {
               tooltip: 'Sync now',
             );
           }),
+          // User menu
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.account_circle),
+            onSelected: (value) {
+              if (value == 'logout') {
+                _showLogoutDialog(context, authController);
+              }
+            },
+            itemBuilder: (context) {
+              return [
+                PopupMenuItem<String>(
+                  enabled: false,
+                  child: Obx(() {
+                    final user = authController.currentUser.value;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.username ?? 'User',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          user?.email ?? '',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Logout', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ];
+            },
+          ),
         ],
       ),
       body: Obx(() {
@@ -150,7 +203,8 @@ class ProductListPage extends GetView<ProductController> {
                       if (product.barcode != null)
                         Text('Barcode: ${product.barcode}'),
                       Text(
-                          'Price: \$${product.price.toStringAsFixed(2)} | Qty: ${product.quantity}'),
+                        'Price: \$${product.price.toStringAsFixed(2)} | Qty: ${product.quantity}',
+                      ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
@@ -174,10 +228,7 @@ class ProductListPage extends GetView<ProductController> {
                   ),
                   trailing: PopupMenuButton(
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Edit'),
-                      ),
+                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
                       const PopupMenuItem(
                         value: 'delete',
                         child: Text('Delete'),
@@ -211,16 +262,32 @@ class ProductListPage extends GetView<ProductController> {
         title: const Text('Delete Product'),
         content: const Text('Are you sure you want to delete this product?'),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
           TextButton(
             onPressed: () {
               Get.back();
               controller.deleteProduct(localId);
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context, AuthController authController) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              authController.logout();
+            },
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

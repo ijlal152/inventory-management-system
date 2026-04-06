@@ -2,10 +2,13 @@ const Product = require("../models/product.model");
 const { Op } = require("sequelize");
 
 class ProductService {
-  async createProduct(productData) {
-    // Check if product with clientId already exists (prevent duplicates)
+  async createProduct(productData, userId) {
+    // Check if product with clientId already exists for this user
     const existing = await Product.findOne({
-      where: { clientId: productData.clientId },
+      where: {
+        clientId: productData.clientId,
+        userId: userId,
+      },
     });
 
     if (existing) {
@@ -17,24 +20,42 @@ class ProductService {
       productData.barcode = null;
     }
 
-    const product = await Product.create(productData);
+    // Add userId to product data
+    const product = await Product.create({
+      ...productData,
+      userId: userId,
+    });
     return product;
   }
 
-  async getAllProducts(includeDeleted = false) {
-    const whereClause = includeDeleted ? {} : { isDeleted: false };
+  async getAllProducts(userId, includeDeleted = false) {
+    const whereClause = {
+      userId: userId,
+      ...(includeDeleted ? {} : { isDeleted: false }),
+    };
     return await Product.findAll({
       where: whereClause,
       order: [["createdAt", "DESC"]],
     });
   }
 
-  async getProductById(id) {
-    return await Product.findByPk(id);
+  async getProductById(id, userId) {
+    return await Product.findOne({
+      where: {
+        id: id,
+        userId: userId,
+      },
+    });
   }
 
-  async updateProduct(id, updates) {
-    const product = await Product.findByPk(id);
+  async updateProduct(id, userId, updates) {
+    const product = await Product.findOne({
+      where: {
+        id: id,
+        userId: userId,
+      },
+    });
+
     if (!product) {
       return null;
     }
@@ -48,8 +69,14 @@ class ProductService {
     return product;
   }
 
-  async deleteProduct(id) {
-    const product = await Product.findByPk(id);
+  async deleteProduct(id, userId) {
+    const product = await Product.findOne({
+      where: {
+        id: id,
+        userId: userId,
+      },
+    });
+
     if (!product) {
       return null;
     }
@@ -59,8 +86,13 @@ class ProductService {
     return product;
   }
 
-  async findByClientId(clientId) {
-    return await Product.findOne({ where: { clientId } });
+  async findByClientId(clientId, userId) {
+    return await Product.findOne({
+      where: {
+        clientId,
+        userId: userId,
+      },
+    });
   }
 }
 

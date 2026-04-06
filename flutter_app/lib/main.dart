@@ -1,23 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/network/authenticated_http_client.dart';
+import 'data/datasources/local/auth_local_datasource.dart';
 import 'data/datasources/local/product_local_datasource.dart';
+import 'data/datasources/remote/auth_remote_datasource.dart';
 import 'data/datasources/remote/barcode_lookup_datasource.dart';
 import 'data/datasources/remote/product_remote_datasource.dart';
 import 'data/models/product_model.dart';
+import 'data/repositories/auth_repository_impl.dart';
 import 'data/repositories/product_repository_impl.dart';
+import 'domain/repositories/auth_repository.dart';
 import 'domain/repositories/product_repository.dart';
+import 'domain/usecases/check_auth_status_usecase.dart';
 import 'domain/usecases/create_product_usecase.dart';
 import 'domain/usecases/delete_product_usecase.dart';
 import 'domain/usecases/get_all_products_usecase.dart';
+import 'domain/usecases/get_current_user_usecase.dart';
 import 'domain/usecases/get_product_by_barcode_usecase.dart';
+import 'domain/usecases/login_usecase.dart';
+import 'domain/usecases/logout_usecase.dart';
 import 'domain/usecases/lookup_barcode_usecase.dart';
+import 'domain/usecases/register_usecase.dart';
 import 'domain/usecases/sync_products_usecase.dart';
 import 'domain/usecases/update_product_usecase.dart';
+import 'presentation/controllers/auth_controller.dart';
 import 'presentation/controllers/barcode_scanner_controller.dart';
 import 'presentation/controllers/product_controller.dart';
+import 'presentation/pages/auth/login_page.dart';
+import 'presentation/pages/auth/register_page.dart';
+import 'presentation/pages/auth/splash_page.dart';
 import 'presentation/pages/barcode_scanner/barcode_scanner_page.dart';
 import 'presentation/pages/product_form/product_form_page.dart';
 import 'presentation/pages/product_list/product_list_page.dart';
@@ -38,8 +54,12 @@ void main() async {
   final localDataSource = ProductLocalDataSourceImpl();
   await localDataSource.init();
 
+  // Initialize Secure Storage and SharedPreferences
+  const secureStorage = FlutterSecureStorage();
+  final sharedPreferences = await SharedPreferences.getInstance();
+
   // Setup dependencies
-  await setupDependencies(localDataSource);
+  await setupDependencies(localDataSource, secureStorage, sharedPreferences);
 
   // Initialize background sync
   await BackgroundSyncService.initialize();
@@ -47,10 +67,56 @@ void main() async {
   runApp(const MyApp());
 }
 
-Future<void> setupDependencies(ProductLocalDataSource localDataSource) async {
-  // Data sources
-  final remoteDataSource = ProductRemoteDataSourceImpl(
+Future<void> setupDependencies(
+  ProductLocalDataSource localDataSource,
+  FlutterSecureStorage secureStorage,
+  SharedPreferences sharedPreferences,
+) async {
+  // Auth Local Data Source
+  final authLocalDataSource = AuthLocalDataSourceImpl(
+    secureStorage: secureStorage,
+    sharedPreferences: sharedPreferences,
+  );
+
+  // Create authenticated HTTP client
+  final authenticatedClient = AuthenticatedHttpClient(
     client: http.Client(),
+    authDataSource: authLocalDataSource,
+  );
+
+  // Auth Remote Data Source
+  final authRemoteDataSource = AuthRemoteDataSourceImpl(
+    client: http.Client(), // Use regular client for auth endpoints
+  );
+
+  // Auth Repository
+  final authRepository = AuthRepositoryImpl(
+    localDataSource: authLocalDataSource,
+    remoteDataSource: authRemoteDataSource,
+  );
+  Get.put<AuthRepository>(authRepository);
+
+  // Auth Use Cases
+  Get.put(LoginUseCase(authRepository));
+  Get.put(RegisterUseCase(authRepository));
+  Get.put(LogoutUseCase(authRepository));
+  Get.put(GetCurrentUserUseCase(authRepository));
+  Get.put(CheckAuthStatusUseCase(authRepository));
+
+  // Auth Controller
+  Get.put(
+    AuthController(
+      loginUseCase: Get.find<LoginUseCase>(),
+      registerUseCase: Get.find<RegisterUseCase>(),
+      logoutUseCase: Get.find<LogoutUseCase>(),
+      getCurrentUserUseCase: Get.find<GetCurrentUserUseCase>(),
+      checkAuthStatusUseCase: Get.find<CheckAuthStatusUseCase>(),
+    ),
+  );
+
+  // Product Remote Data Sources (now using authenticated client)
+  final productRemoteDataSource = ProductRemoteDataSourceImpl(
+    client: authenticatedClient,
   );
 
   // Barcode Lookup Data Source (using Open Food Facts API)
@@ -59,10 +125,10 @@ Future<void> setupDependencies(ProductLocalDataSource localDataSource) async {
     client: http.Client(),
   );
 
-  // Repository
+  // Product Repository
   final productRepository = ProductRepositoryImpl(
     localDataSource: localDataSource,
-    remoteDataSource: remoteDataSource,
+    remoteDataSource: productRemoteDataSource,
   );
   Get.put<ProductRepository>(productRepository);
 
@@ -85,6 +151,20 @@ Future<void> setupDependencies(ProductLocalDataSource localDataSource) async {
     ),
   );
 
+  // ProductController
+  Get.put(
+    ProductController(
+      getAllProductsUseCase: Get.find<GetAllProductsUseCase>(),
+      getProductByBarcodeUseCase: Get.find<GetProductByBarcodeUseCase>(),
+      lookupBarcodeUseCase: Get.find<LookupBarcodeUseCase>(),
+      createProductUseCase: Get.find<CreateProductUseCase>(),
+      updateProductUseCase: Get.find<UpdateProductUseCase>(),
+      deleteProductUseCase: Get.find<DeleteProductUseCase>(),
+      syncProductsUseCase: Get.find<SyncProductsUseCase>(),
+      syncService: Get.find<SyncService>(),
+    ),
+  );
+
   // Initialize services
   Get.find<ConnectivityService>().onInit();
   Get.find<SyncService>().onInit();
@@ -97,41 +177,23 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       title: 'Inventory Manager',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
-      initialRoute: '/',
+      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      initialRoute: '/splash',
       getPages: [
-        GetPage(
-          name: '/',
-          page: () => const ProductListPage(),
-          binding: BindingsBuilder(() {
-            Get.lazyPut(() => ProductController(
-                  getAllProductsUseCase: Get.find<GetAllProductsUseCase>(),
-                  getProductByBarcodeUseCase:
-                      Get.find<GetProductByBarcodeUseCase>(),
-                  lookupBarcodeUseCase: Get.find<LookupBarcodeUseCase>(),
-                  createProductUseCase: Get.find<CreateProductUseCase>(),
-                  updateProductUseCase: Get.find<UpdateProductUseCase>(),
-                  deleteProductUseCase: Get.find<DeleteProductUseCase>(),
-                  syncProductsUseCase: Get.find<SyncProductsUseCase>(),
-                  syncService: Get.find<SyncService>(),
-                ));
-          }),
-        ),
-        GetPage(
-          name: '/product-form',
-          page: () => const ProductFormPage(),
-          // Use the same ProductController instance
-        ),
+        GetPage(name: '/splash', page: () => const SplashPage()),
+        GetPage(name: '/login', page: () => const LoginPage()),
+        GetPage(name: '/register', page: () => const RegisterPage()),
+        GetPage(name: '/products', page: () => const ProductListPage()),
+        GetPage(name: '/product-form', page: () => const ProductFormPage()),
         GetPage(
           name: '/barcode-scanner',
           page: () => const BarcodeScannerPage(),
           binding: BindingsBuilder(() {
-            Get.lazyPut(() => BarcodeScannerController(
-                  barcodeService: Get.find<BarcodeService>(),
-                ));
+            Get.lazyPut(
+              () => BarcodeScannerController(
+                barcodeService: Get.find<BarcodeService>(),
+              ),
+            );
           }),
         ),
       ],

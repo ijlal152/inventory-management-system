@@ -5,6 +5,7 @@ const logger = require("../utils/logger");
 class SyncController {
   async bulkSync(req, res, next) {
     try {
+      const userId = req.user.id; // Get user ID from authenticated user
       const { products } = req.body;
 
       if (!Array.isArray(products)) {
@@ -14,7 +15,7 @@ class SyncController {
         });
       }
 
-      const results = await syncService.bulkSync(products);
+      const results = await syncService.bulkSync(products, userId);
       return successResponse(res, results, "Sync completed");
     } catch (error) {
       logger.error("Error in bulk sync:", error);

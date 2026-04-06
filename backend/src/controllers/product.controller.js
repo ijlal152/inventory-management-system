@@ -5,7 +5,8 @@ const logger = require("../utils/logger");
 class ProductController {
   async createProduct(req, res, next) {
     try {
-      const product = await productService.createProduct(req.body);
+      const userId = req.user.id; // Get user ID from authenticated user
+      const product = await productService.createProduct(req.body, userId);
       return successResponse(res, product, "Product created successfully", 201);
     } catch (error) {
       logger.error("Error creating product:", error);
@@ -36,8 +37,10 @@ class ProductController {
 
   async getAllProducts(req, res, next) {
     try {
+      const userId = req.user.id; // Get user ID from authenticated user
       const { isDeleted = "false" } = req.query;
       const products = await productService.getAllProducts(
+        userId,
         isDeleted === "true",
       );
       return successResponse(res, products, "Products retrieved successfully");
@@ -49,7 +52,11 @@ class ProductController {
 
   async getProductById(req, res, next) {
     try {
-      const product = await productService.getProductById(req.params.id);
+      const userId = req.user.id; // Get user ID from authenticated user
+      const product = await productService.getProductById(
+        req.params.id,
+        userId,
+      );
       if (!product) {
         return errorResponse(res, "Product not found", 404);
       }
@@ -62,8 +69,10 @@ class ProductController {
 
   async updateProduct(req, res, next) {
     try {
+      const userId = req.user.id; // Get user ID from authenticated user
       const product = await productService.updateProduct(
         req.params.id,
+        userId,
         req.body,
       );
       if (!product) {
@@ -78,7 +87,8 @@ class ProductController {
 
   async deleteProduct(req, res, next) {
     try {
-      const product = await productService.deleteProduct(req.params.id);
+      const userId = req.user.id; // Get user ID from authenticated user
+      const product = await productService.deleteProduct(req.params.id, userId);
       if (!product) {
         return errorResponse(res, "Product not found", 404);
       }

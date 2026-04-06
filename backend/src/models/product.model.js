@@ -67,6 +67,16 @@ const Product = sequelize.define(
         },
       },
     },
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: "users",
+        key: "id",
+      },
+      onDelete: "CASCADE",
+      onUpdate: "CASCADE",
+    },
   },
   {
     tableName: "products",
@@ -81,8 +91,19 @@ const Product = sequelize.define(
       {
         fields: ["barcode"],
       },
+      {
+        fields: ["userId"],
+      },
     ],
   },
 );
+
+// Define associations
+Product.associate = (models) => {
+  Product.belongsTo(models.User, {
+    foreignKey: "userId",
+    as: "user",
+  });
+};
 
 module.exports = Product;

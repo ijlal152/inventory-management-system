@@ -2,7 +2,7 @@ const productService = require("./product.service");
 const logger = require("../utils/logger");
 
 class SyncService {
-  async bulkSync(products) {
+  async bulkSync(products, userId) {
     const results = [];
     const errors = [];
 
@@ -13,10 +13,13 @@ class SyncService {
         let result;
         switch (action) {
           case "create":
-            result = await productService.createProduct({
-              ...data,
-              clientId,
-            });
+            result = await productService.createProduct(
+              {
+                ...data,
+                clientId,
+              },
+              userId,
+            );
             results.push({
               clientId,
               serverId: result.id.toString(),
@@ -28,7 +31,7 @@ class SyncService {
             if (!serverId) {
               throw new Error("serverId required for update");
             }
-            result = await productService.updateProduct(serverId, data);
+            result = await productService.updateProduct(serverId, userId, data);
             if (!result) {
               throw new Error("Product not found");
             }
@@ -43,7 +46,7 @@ class SyncService {
             if (!serverId) {
               throw new Error("serverId required for delete");
             }
-            result = await productService.deleteProduct(serverId);
+            result = await productService.deleteProduct(serverId, userId);
             if (!result) {
               throw new Error("Product not found");
             }
