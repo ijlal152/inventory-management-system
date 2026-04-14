@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:get/get.dart';
 
 import '../domain/repositories/product_repository.dart';
@@ -38,7 +40,7 @@ class SyncService extends GetxService {
       await productRepository.syncProducts();
       lastSyncTime.value = DateTime.now().toIso8601String();
     } catch (e) {
-      print('Sync error: $e');
+      log('Sync error: $e');
     } finally {
       isSyncing.value = false;
     }

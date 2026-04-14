@@ -1,6 +1,6 @@
-import 'dart:convert';
+import 'dart:developer';
 
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 
 /// Data class for barcode lookup result
 class BarcodeLookupResult {
@@ -30,20 +30,19 @@ abstract class BarcodeLookupDataSource {
 /// Implementation using Open Food Facts API (free, primarily for food products)
 /// You can replace this with your own barcode API service
 class OpenFoodFactsDataSourceImpl implements BarcodeLookupDataSource {
-  final http.Client client;
+  final Dio dio;
 
-  OpenFoodFactsDataSourceImpl({required this.client});
+  OpenFoodFactsDataSourceImpl({required this.dio});
 
   @override
   Future<BarcodeLookupResult?> lookupBarcode(String barcode) async {
     try {
-      final response = await client.get(
-        Uri.parse(
-            'https://world.openfoodfacts.org/api/v0/product/$barcode.json'),
+      final response = await dio.get(
+        'https://world.openfoodfacts.org/api/v0/product/$barcode.json',
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = response.data;
 
         // Check if product was found
         if (data['status'] == 1 && data['product'] != null) {
@@ -64,7 +63,7 @@ class OpenFoodFactsDataSourceImpl implements BarcodeLookupDataSource {
 
       return null; // Product not found
     } catch (e) {
-      print('Error looking up barcode: $e');
+      log('Error looking up barcode: $e');
       return null;
     }
   }
@@ -73,27 +72,29 @@ class OpenFoodFactsDataSourceImpl implements BarcodeLookupDataSource {
 /// Alternative: UPCitemdb.com implementation
 /// Requires API key from https://www.upcitemdb.com/
 class UPCItemDBDataSourceImpl implements BarcodeLookupDataSource {
-  final http.Client client;
+  final Dio dio;
   final String apiKey;
 
   UPCItemDBDataSourceImpl({
-    required this.client,
+    required this.dio,
     required this.apiKey,
   });
 
   @override
   Future<BarcodeLookupResult?> lookupBarcode(String barcode) async {
     try {
-      final response = await client.get(
-        Uri.parse('https://api.upcitemdb.com/prod/trial/lookup?upc=$barcode'),
-        headers: {
-          'Accept': 'application/json',
-          'user_key': apiKey,
-        },
+      final response = await dio.get(
+        'https://api.upcitemdb.com/prod/trial/lookup?upc=$barcode',
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'user_key': apiKey,
+          },
+        ),
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = response.data;
 
         if (data['code'] == 'OK' &&
             data['items'] != null &&
@@ -118,7 +119,7 @@ class UPCItemDBDataSourceImpl implements BarcodeLookupDataSource {
 
       return null;
     } catch (e) {
-      print('Error looking up barcode: $e');
+      log('Error looking up barcode: $e');
       return null;
     }
   }
@@ -126,23 +127,21 @@ class UPCItemDBDataSourceImpl implements BarcodeLookupDataSource {
 
 /// Custom implementation for your own backend API
 class CustomBackendDataSourceImpl implements BarcodeLookupDataSource {
-  final http.Client client;
+  final Dio dio;
   final String baseUrl;
 
   CustomBackendDataSourceImpl({
-    required this.client,
+    required this.dio,
     required this.baseUrl,
   });
 
   @override
   Future<BarcodeLookupResult?> lookupBarcode(String barcode) async {
     try {
-      final response = await client.get(
-        Uri.parse('$baseUrl/products/lookup/$barcode'),
-      );
+      final response = await dio.get('$baseUrl/products/lookup/$barcode');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body)['data'];
+        final data = response.data['data'];
 
         return BarcodeLookupResult(
           barcode: barcode,
@@ -157,7 +156,7 @@ class CustomBackendDataSourceImpl implements BarcodeLookupDataSource {
 
       return null;
     } catch (e) {
-      print('Error looking up barcode: $e');
+      log('Error looking up barcode: $e');
       return null;
     }
   }

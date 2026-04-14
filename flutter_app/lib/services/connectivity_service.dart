@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get/get.dart';
@@ -21,7 +22,7 @@ class ConnectivityService extends GetxService {
       final result = await _connectivity.checkConnectivity();
       _updateConnectionStatus(result);
     } catch (e) {
-      print('Error checking connectivity: $e');
+      log('Error checking connectivity: $e');
     }
   }
 

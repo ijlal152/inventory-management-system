@@ -1,6 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/datasources/local/auth_local_datasource.dart';
@@ -29,7 +28,8 @@ import '../../presentation/controllers/product_controller.dart';
 import '../../services/barcode_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/sync_service.dart';
-import '../network/authenticated_http_client.dart';
+import '../network/authenticated_dio_client.dart';
+import '../network/dio_client.dart';
 
 class DependencyInjection {
   static Future<void> init(
@@ -43,15 +43,17 @@ class DependencyInjection {
       sharedPreferences: sharedPreferences,
     );
 
-    // Create authenticated HTTP client
-    final authenticatedClient = AuthenticatedHttpClient(
-      client: http.Client(),
+    // Create authenticated Dio client
+    final authenticatedDioClient = AuthenticatedDioClient(
       authDataSource: authLocalDataSource,
     );
 
-    // Auth Remote Data Source
+    // Create regular Dio client for unauthenticated endpoints
+    final dioClient = DioClient();
+
+    // Auth Remote Data Source (using regular Dio client for auth endpoints)
     final authRemoteDataSource = AuthRemoteDataSourceImpl(
-      client: http.Client(), // Use regular client for auth endpoints
+      dio: dioClient.dio,
     );
 
     // Auth Repository
@@ -79,15 +81,15 @@ class DependencyInjection {
       ),
     );
 
-    // Product Remote Data Sources (now using authenticated client)
+    // Product Remote Data Sources (using authenticated Dio client)
     final productRemoteDataSource = ProductRemoteDataSourceImpl(
-      client: authenticatedClient,
+      dio: authenticatedDioClient.dio,
     );
 
-    // Barcode Lookup Data Source (using Open Food Facts API)
+    // Barcode Lookup Data Source (using Open Food Facts API with separate Dio client)
     // You can switch to UPCItemDBDataSourceImpl or CustomBackendDataSourceImpl
     final barcodeLookupDataSource = OpenFoodFactsDataSourceImpl(
-      client: http.Client(),
+      dio: DioClient().dio,
     );
 
     // Product Repository

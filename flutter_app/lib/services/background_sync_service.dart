@@ -1,5 +1,6 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'package:workmanager/workmanager.dart';
 
 import '../data/datasources/local/product_local_datasource.dart';
@@ -18,7 +19,7 @@ const syncTaskName = "backgroundProductSync";
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
-      print('Background sync task started: $task');
+      debugPrint('Background sync task started: $task');
 
       // Initialize Hive in background isolate
       await Hive.initFlutter();
@@ -31,7 +32,7 @@ void callbackDispatcher() {
 
       // Initialize remote data source
       final remoteDataSource = ProductRemoteDataSourceImpl(
-        client: http.Client(),
+        dio: Dio(), // Use a simple HTTP client for background tasks
       );
 
       // Initialize repository
@@ -49,20 +50,20 @@ void callbackDispatcher() {
       final unsyncedProducts = products.where((p) => !p.isSynced).toList();
 
       if (unsyncedProducts.isEmpty) {
-        print('Background sync: No unsynced products found');
+        debugPrint('Background sync: No unsynced products found');
         return Future.value(true);
       }
 
-      print(
+      debugPrint(
           'Background sync: Found ${unsyncedProducts.length} unsynced products. Starting sync...');
 
       // Sync products
       await syncProductsUseCase.execute();
 
-      print('Background sync: Successfully completed');
+      debugPrint('Background sync: Successfully completed');
       return Future.value(true);
     } catch (e) {
-      print('Background sync failed: $e');
+      debugPrint('Background sync failed: $e');
       // Return false to retry later
       return Future.value(false);
     }
@@ -89,7 +90,7 @@ class BackgroundSyncService {
       ),
     );
 
-    print(
+    debugPrint(
         'Background sync service initialized - periodic sync every 15 minutes');
   }
 

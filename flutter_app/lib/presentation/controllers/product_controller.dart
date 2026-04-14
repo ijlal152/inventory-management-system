@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -89,7 +90,7 @@ class ProductController extends GetxController with WidgetsBindingObserver {
     final unsyncedProducts = products.where((p) => !p.isSynced).toList();
 
     if (unsyncedProducts.isNotEmpty) {
-      print(
+      log(
           'App minimized with ${unsyncedProducts.length} unsynced products. Background sync will handle it.');
       // Background sync will be handled by periodic WorkManager task
       // No immediate sync - will happen within 2-3 minutes
@@ -111,11 +112,11 @@ class ProductController extends GetxController with WidgetsBindingObserver {
       final unsyncedProducts = products.where((p) => !p.isSynced).toList();
 
       if (unsyncedProducts.isEmpty) {
-        print('Auto-sync: No unsynced products found');
+        log('Auto-sync: No unsynced products found');
         return;
       }
 
-      print(
+      log(
           'Auto-sync: Found ${unsyncedProducts.length} unsynced products. Starting sync...');
 
       // Sync products using use case
@@ -124,7 +125,7 @@ class ProductController extends GetxController with WidgetsBindingObserver {
       // Reload products to show updated sync status
       await loadProducts();
 
-      print('Auto-sync: Successfully synced products');
+      log('Auto-sync: Successfully synced products');
 
       // Show subtle notification that sync completed
       Get.snackbar(
@@ -134,7 +135,7 @@ class ProductController extends GetxController with WidgetsBindingObserver {
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
-      print('Auto-sync failed: $e');
+      log('Auto-sync failed: $e');
       // Silently fail - will retry on next interval
     }
   }

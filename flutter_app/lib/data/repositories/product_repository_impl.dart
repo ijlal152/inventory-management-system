@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import '../../domain/entities/product.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../datasources/local/product_local_datasource.dart';
@@ -84,7 +86,7 @@ class ProductRepositoryImpl implements ProductRepository {
         }
       } catch (e) {
         // Log error, will retry in next sync
-        print('Sync failed for product ${product.localId}: $e');
+        log('Sync failed for product ${product.localId}: $e');
       }
     }
   }

@@ -1,8 +1,5 @@
-import 'dart:convert';
+import 'package:dio/dio.dart';
 
-import 'package:http/http.dart' as http;
-
-import '../../../core/constants/api_constants.dart';
 import '../../models/auth_response_model.dart';
 import '../../models/user_model.dart';
 
@@ -29,9 +26,9 @@ abstract class AuthRemoteDataSource {
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
-  final http.Client client;
+  final Dio dio;
 
-  AuthRemoteDataSourceImpl({required this.client});
+  AuthRemoteDataSourceImpl({required this.dio});
 
   @override
   Future<AuthResponseModel> register({
@@ -40,22 +37,25 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String password,
     String? fullName,
   }) async {
-    final response = await client.post(
-      Uri.parse('${ApiConstants.baseUrl}/auth/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'username': username,
-        'email': email,
-        'password': password,
-        if (fullName != null) 'fullName': fullName,
-      }),
-    );
+    try {
+      final response = await dio.post(
+        '/auth/register',
+        data: {
+          'username': username,
+          'email': email,
+          'password': password,
+          if (fullName != null) 'fullName': fullName,
+        },
+      );
 
-    if (response.statusCode == 201 || response.statusCode == 200) {
-      return AuthResponseModel.fromJson(jsonDecode(response.body));
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['message'] ?? 'Registration failed');
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return AuthResponseModel.fromJson(response.data);
+      } else {
+        throw Exception(response.data['message'] ?? 'Registration failed');
+      }
+    } on DioException catch (e) {
+      final error = e.response?.data;
+      throw Exception(error?['message'] ?? 'Registration failed');
     }
   }
 
@@ -64,35 +64,42 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String email,
     required String password,
   }) async {
-    final response = await client.post(
-      Uri.parse('${ApiConstants.baseUrl}/auth/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
-    );
+    try {
+      final response = await dio.post(
+        '/auth/login',
+        data: {'email': email, 'password': password},
+      );
 
-    if (response.statusCode == 200) {
-      return AuthResponseModel.fromJson(jsonDecode(response.body));
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['message'] ?? 'Login failed');
+      if (response.statusCode == 200) {
+        return AuthResponseModel.fromJson(response.data);
+      } else {
+        throw Exception(response.data['message'] ?? 'Login failed');
+      }
+    } on DioException catch (e) {
+      final error = e.response?.data;
+      throw Exception(error?['message'] ?? 'Login failed');
     }
   }
 
   @override
   Future<UserModel> getProfile(String token) async {
-    final response = await client.get(
-      Uri.parse('${ApiConstants.baseUrl}/auth/profile'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+    try {
+      final response = await dio.get(
+        '/auth/profile',
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body)['data'];
-      return UserModel.fromJson(data);
-    } else {
-      throw Exception('Failed to get profile');
+      if (response.statusCode == 200) {
+        final data = response.data['data'];
+        return UserModel.fromJson(data);
+      } else {
+        throw Exception('Failed to get profile');
+      }
+    } on DioException catch (e) {
+      throw Exception(
+          'Failed to get profile: ${e.response?.data ?? e.message}');
     }
   }
 
@@ -102,21 +109,25 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     required String currentPassword,
     required String newPassword,
   }) async {
-    final response = await client.post(
-      Uri.parse('${ApiConstants.baseUrl}/auth/change-password'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'currentPassword': currentPassword,
-        'newPassword': newPassword,
-      }),
-    );
+    try {
+      final response = await dio.post(
+        '/auth/change-password',
+        data: {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
 
-    if (response.statusCode != 200) {
-      final error = jsonDecode(response.body);
-      throw Exception(error['message'] ?? 'Failed to change password');
+      if (response.statusCode != 200) {
+        throw Exception(
+            response.data['message'] ?? 'Failed to change password');
+      }
+    } on DioException catch (e) {
+      final error = e.response?.data;
+      throw Exception(error?['message'] ?? 'Failed to change password');
     }
   }
 }
